@@ -176,7 +176,7 @@ impl State {
 
     /// Prepare for a new frame by extracting the accumulated input,
     /// as well as setting [the time](egui::RawInput::time) and [screen rectangle](egui::RawInput::screen_rect).
-    pub fn take_egui_input(&mut self, window: &winit::window::Window) -> egui::RawInput {
+    pub fn take_egui_input(&mut self, resolution: egui::Vec2) -> egui::RawInput {
         let pixels_per_point = self.pixels_per_point();
 
         self.egui_input.time = Some(self.start_time.elapsed().as_secs_f64());
@@ -184,7 +184,7 @@ impl State {
         // On Windows, a minimized window will have 0 width and height.
         // See: https://github.com/rust-windowing/winit/issues/208
         // This solves an issue where egui window positions would be changed when minimizing on Windows.
-        let screen_size_in_pixels = screen_size_in_pixels(window);
+        let screen_size_in_pixels = resolution;
         let screen_size_in_points = screen_size_in_pixels / pixels_per_point;
         self.egui_input.screen_rect =
             if screen_size_in_points.x > 0.0 && screen_size_in_points.y > 0.0 {
