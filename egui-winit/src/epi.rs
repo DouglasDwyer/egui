@@ -325,7 +325,10 @@ impl EpiIntegration {
     pub fn update(&mut self, window: &winit::window::Window) -> egui::FullOutput {
         let frame_start = instant::Instant::now();
 
-        let raw_input = self.egui_winit.take_egui_input(window);
+        let raw_input = self.egui_winit.take_egui_input(egui::vec2(
+            window.inner_size().width as f32,
+            window.inner_size().height as f32,
+        ));
         let full_output = self.egui_ctx.run(raw_input, |egui_ctx| {
             self.app.update(egui_ctx, &self.frame);
         });
