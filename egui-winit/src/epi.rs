@@ -26,7 +26,11 @@ pub fn window_builder(
     let window_icon = icon_data.clone().and_then(load_icon);
 
     let mut window_builder = winit::window::WindowBuilder::new()
-        .with_always_on_top(*always_on_top)
+        .with_window_level(if *always_on_top {
+            winit::window::WindowLevel::AlwaysOnTop
+        } else {
+            winit::window::WindowLevel::Normal
+        })
         .with_maximized(*maximized)
         .with_decorations(*decorated)
         .with_resizable(*resizable)
