@@ -6,6 +6,7 @@ use crate::{RepaintCause, ViewportIdMap, ViewportOutput, WidgetType};
 ///
 /// The backend should use this.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct FullOutput {
     /// Non-rendering related output.
     pub platform_output: PlatformOutput,

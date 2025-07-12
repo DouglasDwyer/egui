@@ -264,6 +264,7 @@ pub struct FontDefinitions {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct FontInsert {
     /// Font name
     pub name: String,
@@ -276,6 +277,7 @@ pub struct FontInsert {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct InsertFontFamily {
     /// Font family
     pub family: FontFamily,
@@ -285,6 +287,7 @@ pub struct InsertFontFamily {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum FontPriority {
     /// Prefer this font before all existing ones.
     ///

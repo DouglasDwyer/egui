@@ -52,6 +52,7 @@ impl PanelState {
 
 /// [`Left`](Side::Left) or [`Right`](Side::Right)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Side {
     Left,
     Right,
@@ -106,6 +107,7 @@ impl Side {
 ///
 /// See also [`TopBottomPanel`].
 #[must_use = "You should call .show()"]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct SidePanel {
     side: Side,
     id: Id,
@@ -539,6 +541,7 @@ impl SidePanel {
 
 /// [`Top`](TopBottomSide::Top) or [`Bottom`](TopBottomSide::Bottom)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum TopBottomSide {
     Top,
     Bottom,
@@ -593,6 +596,7 @@ impl TopBottomSide {
 ///
 /// See also [`SidePanel`].
 #[must_use = "You should call .show()"]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct TopBottomPanel {
     side: TopBottomSide,
     id: Id,
@@ -1080,6 +1084,7 @@ impl TopBottomPanel {
 /// ```
 #[must_use = "You should call .show()"]
 #[derive(Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct CentralPanel {
     frame: Option<Frame>,
 }

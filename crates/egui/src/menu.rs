@@ -120,7 +120,7 @@ pub fn menu_button<R>(
 /// Returns `None` if the menu is not open.
 pub fn menu_custom_button<R>(
     ui: &mut Ui,
-    button: Button<'_>,
+    button: Button,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<Option<R>> {
     stationary_menu_button_impl(ui, button, Box::new(add_contents))
@@ -134,7 +134,7 @@ pub fn menu_custom_button<R>(
 #[deprecated = "Use `menu_custom_button` instead"]
 pub fn menu_image_button<R>(
     ui: &mut Ui,
-    image_button: ImageButton<'_>,
+    image_button: ImageButton,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<Option<R>> {
     stationary_menu_button_impl(
@@ -254,7 +254,7 @@ fn stationary_menu_impl<'c, R>(
 /// Responds to primary clicks.
 fn stationary_menu_button_impl<'c, R>(
     ui: &mut Ui,
-    button: Button<'_>,
+    button: Button,
     add_contents: Box<dyn FnOnce(&mut Ui) -> R + 'c>,
 ) -> InnerResponse<Option<R>> {
     let bar_id = ui.id();
@@ -499,13 +499,13 @@ impl MenuResponse {
     }
 }
 
-pub struct SubMenuButton {
+pub struct SubMenuButton2 {
     text: WidgetText,
     icon: WidgetText,
     index: usize,
 }
 
-impl SubMenuButton {
+impl SubMenuButton2 {
     /// The `icon` can be an emoji (e.g. `⏵` right arrow), shown right of the label
     fn new(text: impl Into<WidgetText>, icon: impl Into<WidgetText>, index: usize) -> Self {
         Self {
@@ -600,7 +600,7 @@ impl SubMenuButton {
 }
 
 pub struct SubMenu {
-    button: SubMenuButton,
+    button: SubMenuButton2,
     parent_state: Arc<RwLock<MenuState>>,
 }
 
@@ -608,7 +608,7 @@ impl SubMenu {
     fn new(parent_state: Arc<RwLock<MenuState>>, text: impl Into<WidgetText>) -> Self {
         let index = parent_state.write().next_entry_index();
         Self {
-            button: SubMenuButton::new(text, "⏵", index),
+            button: SubMenuButton2::new(text, "⏵", index),
             parent_state,
         }
     }

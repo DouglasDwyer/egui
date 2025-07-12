@@ -118,6 +118,7 @@ impl Default for TextureId {
 ///
 /// Everything is using logical points.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ClippedShape {
     /// Clip / scissor rectangle.
     /// Only show the part of the [`Shape`] that falls within this.
@@ -131,6 +132,7 @@ pub struct ClippedShape {
 ///
 /// Everything is using logical points.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ClippedPrimitive {
     /// Clip / scissor rectangle.
     /// Only show the part of the [`Mesh`] that falls within this.
@@ -142,8 +144,10 @@ pub struct ClippedPrimitive {
 
 /// A rendering primitive - either a [`Mesh`] or a [`PaintCallback`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Primitive {
     Mesh(Mesh),
+    #[cfg_attr(feature = "serde", serde(skip))]
     Callback(PaintCallback),
 }
 

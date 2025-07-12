@@ -260,6 +260,7 @@ pub type ImmediateViewportRendererCallback = dyn for<'a> Fn(&Context, ImmediateV
 /// The default values are implementation defined, so you may want to explicitly
 /// configure the size of the window, and what buttons are shown.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ViewportBuilder {
     /// The title of the viewport.
     /// `eframe` will use this as the title of the native window.
@@ -1159,6 +1160,7 @@ impl ViewportCommand {
 /// This is returned by [`crate::Context::run`] on each frame, and should be applied
 /// by the integration.
 #[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ViewportOutput {
     /// Id of our parent viewport.
     pub parent: ViewportId,
@@ -1179,6 +1181,7 @@ pub struct ViewportOutput {
     /// The user-code that shows the GUI, used for deferred viewports.
     ///
     /// `None` for immediate viewports and the ROOT viewport.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub viewport_ui_cb: Option<Arc<DeferredViewportUiCallback>>,
 
     /// Commands to change the viewport, e.g. window title and size.

@@ -35,12 +35,14 @@ pub type IconPainter = Box<dyn FnOnce(&Ui, Rect, &WidgetVisuals, bool)>;
 /// # });
 /// ```
 #[must_use = "You should call .show*"]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct ComboBox {
     id_salt: Id,
     label: Option<WidgetText>,
     selected_text: WidgetText,
     width: Option<f32>,
     height: Option<f32>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     icon: Option<IconPainter>,
     wrap_mode: Option<TextWrapMode>,
     close_behavior: Option<PopupCloseBehavior>,
