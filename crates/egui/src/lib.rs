@@ -3,7 +3,7 @@
 //! Try the live web demo: <https://www.egui.rs/#demo>. Read more about egui at <https://github.com/emilk/egui>.
 //!
 //! `egui` is in heavy development, with each new version having breaking changes.
-//! You need to have rust 1.85.0 or later to use `egui`.
+//! You need to have rust 1.88.0 or later to use `egui`.
 //!
 //! To quickly get started with egui, you can take a look at [`eframe_template`](https://github.com/emilk/eframe_template)
 //! which uses [`eframe`](https://docs.rs/eframe).
@@ -406,6 +406,7 @@
 #![allow(clippy::manual_range_contains)]
 
 mod animation_manager;
+mod atomics;
 pub mod cache;
 pub mod containers;
 mod context;
@@ -429,6 +430,7 @@ pub mod os;
 mod painter;
 mod pass_state;
 pub(crate) mod placer;
+mod plugin;
 pub mod response;
 mod sense;
 pub mod style;
@@ -442,7 +444,6 @@ mod widget_rect;
 pub mod widget_text;
 pub mod widgets;
 
-mod atomics;
 #[cfg(feature = "callstack")]
 #[cfg(debug_assertions)]
 mod callstack;
@@ -495,12 +496,13 @@ pub use self::{
     epaint::text::TextWrapMode,
     grid::Grid,
     id::{Id, IdMap},
-    input_state::{InputOptions, InputState, MultiTouchInfo, PointerState, PinchType, PointerEvent},
+    input_state::{InputOptions, InputState, MultiTouchInfo, PointerState, PinchType, PointerEvent, SurrenderFocusOn},
     layers::{LayerId, Order},
     layout::*,
     load::SizeHint,
-    memory::{Memory, Options, Theme, ThemePreference},
+    memory::{FocusDirection, Memory, Options, Theme, ThemePreference},
     painter::Painter,
+    plugin::Plugin,
     response::{InnerResponse, Response},
     sense::Sense,
     style::{FontSelection, Spacing, Style, TextStyle, Visuals},
@@ -668,11 +670,11 @@ pub enum WidgetType {
 
     ColorButton,
 
-    ImageButton,
-
     Image,
 
     CollapsingHeader,
+
+    Panel,
 
     ProgressIndicator,
 

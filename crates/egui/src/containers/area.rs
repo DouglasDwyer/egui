@@ -439,7 +439,7 @@ impl Area {
             sizing_pass: force_sizing_pass,
         } = self;
 
-        let constrain_rect = constrain_rect.unwrap_or_else(|| ctx.screen_rect());
+        let constrain_rect = constrain_rect.unwrap_or_else(|| ctx.content_rect());
 
         let layer_id = LayerId::new(order, id);
 
@@ -528,10 +528,21 @@ impl Area {
                 true,
             );
 
-            if movable && move_response.dragged() {
-                if let Some(pivot_pos) = &mut state.pivot_pos {
-                    *pivot_pos += move_response.drag_delta();
-                }
+            // Used to prevent drift
+            let pivot_at_start_of_drag_id = id.with("pivot_at_drag_start");
+
+            if movable
+                && move_response.dragged()
+                && let Some(pivot_pos) = &mut state.pivot_pos
+            {
+                let pivot_at_start_of_drag = ctx.data_mut(|data| {
+                    *data.get_temp_mut_or::<Pos2>(pivot_at_start_of_drag_id, *pivot_pos)
+                });
+
+                *pivot_pos =
+                    pivot_at_start_of_drag + move_response.total_drag_delta().unwrap_or_default();
+            } else {
+                ctx.data_mut(|data| data.remove::<Pos2>(pivot_at_start_of_drag_id));
             }
 
             if (move_response.dragged() || move_response.clicked())
@@ -545,13 +556,14 @@ impl Area {
             move_response
         };
 
-        if constrain {
-            state.set_left_top_pos(
-                Context::constrain_window_rect_to_area(state.rect(), constrain_rect).min,
-            );
-        }
-
-        state.set_left_top_pos(state.left_top_pos());
+        state.set_left_top_pos(round_area_position(
+            ctx,
+            if constrain {
+                Context::constrain_window_rect_to_area(state.rect(), constrain_rect).min
+            } else {
+                state.left_top_pos()
+            },
+        ));
 
         // Update response with possibly moved/constrained rect:
         move_response.rect = state.rect();
@@ -570,6 +582,16 @@ impl Area {
             layout,
         }
     }
+}
+
+fn round_area_position(ctx: &Context, pos: Pos2) -> Pos2 {
+    // We round a lot of rendering to pixels, so we round the whole
+    // area positions to pixels too, so avoid widgets appearing to float
+    // around independently of each other when the area is dragged.
+    // But just in case pixels_per_point is irrational,
+    // we then also round to ui coordinates:
+
+    pos.round_to_pixels(ctx.pixels_per_point()).round_ui()
 }
 
 impl Prepared {
@@ -597,6 +619,7 @@ impl Prepared {
             .layer_id(self.layer_id)
             .max_rect(max_rect)
             .layout(self.layout)
+            .accessibility_parent(self.move_response.id)
             .closable();
 
         if !self.enabled {
@@ -609,16 +632,16 @@ impl Prepared {
         let mut ui = Ui::new(ctx.clone(), self.layer_id.id, ui_builder);
         ui.set_clip_rect(self.constrain_rect); // Don't paint outside our bounds
 
-        if self.fade_in {
-            if let Some(last_became_visible_at) = self.state.last_became_visible_at {
-                let age =
-                    ctx.input(|i| (i.time - last_became_visible_at) as f32 + i.predicted_dt / 2.0);
-                let opacity = crate::remap_clamp(age, 0.0..=ctx.style().animation_time, 0.0..=1.0);
-                let opacity = emath::easing::quadratic_out(opacity); // slow fade-out = quick fade-in
-                ui.multiply_opacity(opacity);
-                if opacity < 1.0 {
-                    ctx.request_repaint();
-                }
+        if self.fade_in
+            && let Some(last_became_visible_at) = self.state.last_became_visible_at
+        {
+            let age =
+                ctx.input(|i| (i.time - last_became_visible_at) as f32 + i.predicted_dt / 2.0);
+            let opacity = crate::remap_clamp(age, 0.0..=ctx.style().animation_time, 0.0..=1.0);
+            let opacity = emath::easing::quadratic_out(opacity); // slow fade-out = quick fade-in
+            ui.multiply_opacity(opacity);
+            if opacity < 1.0 {
+                ctx.request_repaint();
             }
         }
 

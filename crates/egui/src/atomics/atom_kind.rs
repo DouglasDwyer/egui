@@ -1,4 +1,4 @@
-use crate::{Id, Image, ImageSource, SizedAtomKind, TextStyle, Ui, WidgetText};
+use crate::{FontSelection, Id, Image, ImageSource, SizedAtomKind, Ui, WidgetText};
 use emath::Vec2;
 use epaint::text::TextWrapMode;
 
@@ -42,7 +42,7 @@ pub enum AtomKind {
     /// For custom rendering.
     ///
     /// You can get the [`crate::Rect`] with the [`Id`] from [`crate::AtomLayoutResponse`] and use a
-    /// [`crate::Painter`] or [`Ui::put`] to add/draw some custom content.
+    /// [`crate::Painter`] or [`Ui::place`] to add/draw some custom content.
     ///
     /// Example:
     /// ```
@@ -54,7 +54,7 @@ pub enum AtomKind {
     ///
     /// let rect = response.rect(id);
     /// if let Some(rect) = rect {
-    ///     ui.put(rect, Button::new("⏵"));
+    ///     ui.place(rect, Button::new("⏵"));
     /// }
     /// # });
     /// ```
@@ -79,12 +79,12 @@ impl AtomKind {
         ui: &Ui,
         available_size: Vec2,
         wrap_mode: Option<TextWrapMode>,
+        fallback_font: FontSelection,
     ) -> (Vec2, SizedAtomKind) {
         match self {
             AtomKind::Text(text) => {
                 let wrap_mode = wrap_mode.unwrap_or(ui.wrap_mode());
-                let galley =
-                    text.into_galley(ui, Some(wrap_mode), available_size.x, TextStyle::Button);
+                let galley = text.into_galley(ui, Some(wrap_mode), available_size.x, fallback_font);
                 (galley.intrinsic_size(), SizedAtomKind::Text(galley))
             }
             AtomKind::Image(image) => {

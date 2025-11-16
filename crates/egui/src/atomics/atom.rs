@@ -1,4 +1,4 @@
-use crate::{AtomKind, Id, SizedAtom, Ui};
+use crate::{AtomKind, FontSelection, Id, SizedAtom, Ui};
 use emath::{NumExt as _, Vec2};
 use epaint::text::TextWrapMode;
 
@@ -70,6 +70,7 @@ impl Atom {
         ui: &Ui,
         mut available_size: Vec2,
         mut wrap_mode: Option<TextWrapMode>,
+        fallback_font: FontSelection,
     ) -> SizedAtom {
         if !self.shrink && self.max_size.x.is_infinite() {
             wrap_mode = Some(TextWrapMode::Extend);
@@ -82,7 +83,9 @@ impl Atom {
             wrap_mode = Some(TextWrapMode::Truncate);
         }
 
-        let (intrinsic, kind) = self.kind.into_sized(ui, available_size, wrap_mode);
+        let (intrinsic, kind) = self
+            .kind
+            .into_sized(ui, available_size, wrap_mode, fallback_font);
 
         let size = self
             .size

@@ -1,9 +1,9 @@
 //! The input needed by egui.
 
-use epaint::ColorImage;
+use epaint::{ColorImage, MarginF32};
 
 use crate::{
-    Key, Theme, ViewportId, ViewportIdMap,
+    Key, OrderedViewportIdMap, Theme, ViewportId, ViewportIdMap,
     emath::{Pos2, Rect, Vec2},
 };
 
@@ -26,6 +26,11 @@ pub struct RawInput {
 
     /// Information about all egui viewports.
     pub viewports: ViewportIdMap<ViewportInfo>,
+
+    /// The insets used to only render content in a mobile safe area
+    ///
+    /// `None` will be treated as "same as last frame"
+    pub safe_area_insets: Option<SafeAreaInsets>,
 
     /// Position and size of the area that egui should use, in points.
     /// Usually you would set this to
@@ -98,6 +103,7 @@ impl Default for RawInput {
             dropped_files: Default::default(),
             focused: true, // integrations opt into global focus tracking
             system_theme: None,
+            safe_area_insets: Default::default(),
         }
     }
 }
@@ -122,6 +128,7 @@ impl RawInput {
                 .map(|(id, info)| (*id, info.take()))
                 .collect(),
             screen_rect: self.screen_rect.take(),
+            safe_area_insets: self.safe_area_insets.take(),
             max_texture_side: self.max_texture_side.take(),
             time: self.time,
             predicted_dt: self.predicted_dt,
@@ -149,6 +156,7 @@ impl RawInput {
             mut dropped_files,
             focused,
             system_theme,
+            safe_area_insets: safe_area,
         } = newer;
 
         self.viewport_id = viewport_ids;
@@ -163,6 +171,7 @@ impl RawInput {
         self.dropped_files.append(&mut dropped_files);
         self.focused = focused;
         self.system_theme = system_theme;
+        self.safe_area_insets = safe_area;
     }
 }
 
@@ -478,6 +487,9 @@ pub enum Event {
     ///
     /// As a user, check [`crate::InputState::smooth_scroll_delta`] to see if the user did any zooming this frame.
     Zoom(f32),
+
+    /// Rotation in radians this frame, measuring clockwise (e.g. from a rotation gesture).
+    Rotate(f32),
 
     /// IME Event
     Ime(ImeEvent),
@@ -1129,10 +1141,15 @@ impl RawInput {
             dropped_files,
             focused,
             system_theme,
+            safe_area_insets: safe_area,
         } = self;
 
         ui.label(format!("Active viewport: {viewport_id:?}"));
-        for (id, viewport) in viewports {
+        let ordered_viewports = viewports
+            .iter()
+            .map(|(id, value)| (*id, value))
+            .collect::<OrderedViewportIdMap<_>>();
+        for (id, viewport) in ordered_viewports {
             ui.group(|ui| {
                 ui.label(format!("Viewport {id:?}"));
                 ui.push_id(id, |ui| {
@@ -1154,6 +1171,7 @@ impl RawInput {
         ui.label(format!("dropped_files: {}", dropped_files.len()));
         ui.label(format!("focused: {focused}"));
         ui.label(format!("system_theme: {system_theme:?}"));
+        ui.label(format!("safe_area: {safe_area:?}"));
         ui.scope(|ui| {
             ui.set_min_height(150.0);
             ui.label(format!("events: {events:#?}"))
@@ -1289,5 +1307,21 @@ impl EventFilter {
         } else {
             true
         }
+    }
+}
+
+/// The 'safe area' insets of the screen
+///
+/// This represents the area taken up by the status bar, navigation controls, notches,
+/// or any other items that obscure parts of the screen.
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+pub struct SafeAreaInsets(pub MarginF32);
+
+impl std::ops::Sub<SafeAreaInsets> for Rect {
+    type Output = Self;
+
+    fn sub(self, rhs: SafeAreaInsets) -> Self::Output {
+        self - rhs.0
     }
 }

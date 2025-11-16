@@ -80,9 +80,10 @@ impl eframe::App for ColorTestApp {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub enum Anchor {
+    #[default]
     Demo,
 
     EasyMarkEditor,
@@ -138,12 +139,6 @@ impl From<Anchor> for egui::WidgetText {
     }
 }
 
-impl Default for Anchor {
-    fn default() -> Self {
-        Self::Demo
-    }
-}
-
 // ----------------------------------------------------------------------------
 
 #[derive(Clone, Copy, Debug)]
@@ -188,6 +183,10 @@ impl WrapApp {
         // This gives us image support:
         egui_extras::install_image_loaders(&cc.egui_ctx);
 
+        #[cfg(feature = "accessibility_inspector")]
+        cc.egui_ctx
+            .add_plugin(crate::accessibility_inspector::AccessibilityInspectorPlugin::default());
+
         #[allow(unused_mut, clippy::allow_attributes)]
         let mut slf = Self {
             state: State::default(),
@@ -199,10 +198,10 @@ impl WrapApp {
         };
 
         #[cfg(feature = "persistence")]
-        if let Some(storage) = cc.storage {
-            if let Some(state) = eframe::get_value(storage, eframe::APP_KEY) {
-                slf.state = state;
-            }
+        if let Some(storage) = cc.storage
+            && let Some(state) = eframe::get_value(storage, eframe::APP_KEY)
+        {
+            slf.state = state;
         }
 
         slf
@@ -472,10 +471,10 @@ impl WrapApp {
             let painter =
                 ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
 
-            let screen_rect = ctx.screen_rect();
-            painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+            let content_rect = ctx.content_rect();
+            painter.rect_filled(content_rect, 0.0, Color32::from_black_alpha(192));
             painter.text(
-                screen_rect.center(),
+                content_rect.center(),
                 Align2::CENTER_CENTER,
                 text,
                 TextStyle::Heading.resolve(&ctx.style()),

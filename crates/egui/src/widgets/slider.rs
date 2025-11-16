@@ -807,7 +807,7 @@ impl Slider<'_> {
                     SliderOrientation::Vertical => {
                         trailing_rail_rect.min.y = center.y - corner_radius.se as f32;
                     }
-                };
+                }
 
                 ui.painter().rect_filled(
                     trailing_rail_rect,
@@ -937,7 +937,7 @@ impl Slider<'_> {
 
             if let Some(fmt) = &self.custom_formatter {
                 dv = dv.custom_formatter(fmt);
-            };
+            }
             if let Some(parser) = &self.custom_parser {
                 dv = dv.custom_parser(parser);
             }

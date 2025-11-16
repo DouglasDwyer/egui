@@ -28,8 +28,9 @@ pub use builder::*;
 pub use node::*;
 pub use renderer::*;
 
+use egui::epaint::{ClippedShape, RectShape};
 use egui::style::ScrollAnimation;
-use egui::{Key, Modifiers, Pos2, Rect, RepaintCause, Vec2, ViewportId};
+use egui::{Color32, Key, Modifiers, Pos2, Rect, RepaintCause, Shape, Vec2, ViewportId};
 use kittest::Queryable;
 
 #[derive(Debug, Clone)]
@@ -51,6 +52,7 @@ impl Display for ExceededMaxStepsError {
 }
 
 /// The test Harness. This contains everything needed to run the test.
+///
 /// Create a new Harness using [`Harness::new`] or [`Harness::builder`].
 ///
 /// The [Harness] has a optional generic state that can be used to pass data to the app / ui closure.
@@ -73,6 +75,9 @@ pub struct Harness<'a, State = ()> {
     step_dt: f32,
     wait_for_pending_images: bool,
     queued_events: EventQueue,
+
+    #[cfg(feature = "snapshot")]
+    default_snapshot_options: SnapshotOptions,
 }
 
 impl<State> Debug for Harness<'_, State> {
@@ -92,14 +97,19 @@ impl<'a, State> Harness<'a, State> {
             screen_rect,
             pixels_per_point,
             theme,
+            os,
             max_steps,
             step_dt,
             state: _,
             mut renderer,
             wait_for_pending_images,
+
+            #[cfg(feature = "snapshot")]
+            default_snapshot_options,
         } = builder;
         let ctx = ctx.unwrap_or_default();
         ctx.set_theme(theme);
+        ctx.set_os(os);
         ctx.enable_accesskit();
         ctx.all_styles_mut(|style| {
             // Disable cursor blinking so it doesn't interfere with snapshots
@@ -143,6 +153,9 @@ impl<'a, State> Harness<'a, State> {
             step_dt,
             wait_for_pending_images,
             queued_events: Default::default(),
+
+            #[cfg(feature = "snapshot")]
+            default_snapshot_options,
         };
         // Run the harness until it is stable, ensuring that all Areas are shown and animations are done
         harness.run_ok();
@@ -273,14 +286,39 @@ impl<'a, State> Harness<'a, State> {
         self.output = output;
     }
 
+    /// Calculate the rect that includes all popups and tooltips.
+    fn compute_total_rect_with_popups(&self) -> Option<Rect> {
+        // Start with the standard response rect
+        let mut used = if let Some(response) = self.response.as_ref() {
+            response.rect
+        } else {
+            return None;
+        };
+
+        // Add all visible areas from other orders (popups, tooltips, etc.)
+        self.ctx.memory(|mem| {
+            mem.areas()
+                .visible_layer_ids()
+                .into_iter()
+                .filter(|layer_id| layer_id.order != egui::Order::Background)
+                .filter_map(|layer_id| mem.area_rect(layer_id.id))
+                .for_each(|area_rect| used |= area_rect);
+        });
+
+        Some(used)
+    }
+
     /// Resize the test harness to fit the contents. This only works when creating the Harness via
     /// [`Harness::new_ui`] / [`Harness::new_ui_state`] or
     /// [`HarnessBuilder::build_ui`] / [`HarnessBuilder::build_ui_state`].
     pub fn fit_contents(&mut self) {
         self._step(true);
-        if let Some(response) = &self.response {
-            self.set_size(response.rect.size());
+
+        // Calculate size including all content (main UI + popups + tooltips)
+        if let Some(rect) = self.compute_total_rect_with_popups() {
+            self.set_size(rect.size());
         }
+
         self.run_ok();
     }
 
@@ -432,11 +470,15 @@ impl<'a, State> Harness<'a, State> {
         &mut self.state
     }
 
-    fn event(&self, event: egui::Event) {
+    /// Queue an event to be processed in the next frame.
+    pub fn event(&self, event: egui::Event) {
         self.queued_events.lock().push(EventType::Event(event));
     }
 
-    fn event_modifiers(&self, event: egui::Event, modifiers: Modifiers) {
+    /// Queue an event with modifiers.
+    ///
+    /// Queues the modifiers to be pressed, then the event, then the modifiers to be released.
+    pub fn event_modifiers(&self, event: egui::Event, modifiers: Modifiers) {
         let mut queue = self.queued_events.lock();
         queue.push(EventType::Modifiers(modifiers));
         queue.push(EventType::Event(event));
@@ -554,6 +596,28 @@ impl<'a, State> Harness<'a, State> {
     /// - reset the modifiers
     pub fn key_press_modifiers(&self, modifiers: Modifiers, key: egui::Key) {
         self.key_combination_modifiers(modifiers, &[key]);
+    }
+
+    /// Remove the cursor from the screen.
+    ///
+    /// Will fire a [`egui::Event::PointerGone`] event.
+    ///
+    /// If you click a button and then take a snapshot, the button will be shown as hovered.
+    /// If you don't want that, you can call this method after clicking.
+    pub fn remove_cursor(&self) {
+        self.event(egui::Event::PointerGone);
+    }
+
+    /// Mask something. Useful for snapshot tests.
+    ///
+    /// Call this _after_ [`Self::run`] and before [`Self::snapshot`].
+    /// This will add a [`RectShape`] to the output shapes, for the current frame.
+    /// Will be overwritten on the next call to [`Self::run`].
+    pub fn mask(&mut self, rect: Rect) {
+        self.output.shapes.push(ClippedShape {
+            clip_rect: Rect::EVERYTHING,
+            shape: Shape::Rect(RectShape::filled(rect, 0.0, Color32::MAGENTA)),
+        });
     }
 
     /// Render the last output to an image.

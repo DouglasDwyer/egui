@@ -15,6 +15,7 @@ use crate::{Id, LayerId, Layout, Rect, Sense, Style, UiStackInfo};
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
 pub struct UiBuilder {
     pub id_salt: Option<Id>,
+    pub global_scope: bool,
     pub ui_stack_info: UiStackInfo,
     pub layer_id: Option<LayerId>,
     pub max_rect: Option<Rect>,
@@ -24,6 +25,8 @@ pub struct UiBuilder {
     pub sizing_pass: bool,
     pub style: Option<Arc<Style>>,
     pub sense: Option<Sense>,
+    #[cfg(feature = "accesskit")]
+    pub accessibility_parent: Option<Id>,
 }
 
 impl UiBuilder {
@@ -40,6 +43,34 @@ impl UiBuilder {
     #[inline]
     pub fn id_salt(mut self, id_salt: impl Hash) -> Self {
         self.id_salt = Some(Id::new(id_salt));
+        self
+    }
+
+    /// Set an id of the new `Ui` that is independent of the parent `Ui`.
+    /// This way child widgets can be moved in the ui tree without losing state.
+    /// You have to ensure that in a frame the child widgets do not get rendered in multiple places.
+    ///
+    /// You should set the same unique `id` at every place in the ui tree where you want the
+    /// child widgets to share state.
+    /// If the child widgets are not moved in the ui tree, use [`UiBuilder::id_salt`] instead.
+    ///
+    /// This is a shortcut for `.id_salt(my_id).global_scope(true)`.
+    #[inline]
+    pub fn id(mut self, id: impl Hash) -> Self {
+        self.id_salt = Some(Id::new(id));
+        self.global_scope = true;
+        self
+    }
+
+    /// Make the new `Ui` child ids independent of the parent `Ui`.
+    /// This way child widgets can be moved in the ui tree without losing state.
+    /// You have to ensure that in a frame the child widgets do not get rendered in multiple places.
+    ///
+    /// You should set the same globally unique `id_salt` at every place in the ui tree where you want the
+    /// child widgets to share state.
+    #[inline]
+    pub fn global_scope(mut self, global_scope: bool) -> Self {
+        self.global_scope = global_scope;
         self
     }
 
@@ -150,6 +181,22 @@ impl UiBuilder {
         self.ui_stack_info
             .tags
             .insert(ClosableTag::NAME, Some(Arc::new(ClosableTag::default())));
+        self
+    }
+
+    /// Set the accessibility parent for this [`Ui`].
+    ///
+    /// This will override the automatic parent assignment for accessibility purposes.
+    /// If not set, the parent [`Ui`]'s ID will be used as the accessibility parent.
+    ///
+    /// This does nothing if the `accesskit` feature is not enabled.
+    #[cfg_attr(not(feature = "accesskit"), expect(unused_mut, unused_variables))]
+    #[inline]
+    pub fn accessibility_parent(mut self, parent_id: Id) -> Self {
+        #[cfg(feature = "accesskit")]
+        {
+            self.accessibility_parent = Some(parent_id);
+        }
         self
     }
 }

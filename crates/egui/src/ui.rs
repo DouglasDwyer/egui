@@ -3,6 +3,7 @@
 
 use emath::GuiRounding as _;
 use epaint::mutex::RwLock;
+use epaint::text::FontsView;
 use std::{any::Any, hash::Hash, sync::Arc};
 
 use crate::ClosableTag;
@@ -16,9 +17,7 @@ use crate::{
     WidgetRect, WidgetText,
     containers::{CollapsingHeader, CollapsingResponse, Frame},
     ecolor::Hsva,
-    emath, epaint,
-    epaint::text::Fonts,
-    grid,
+    emath, epaint, grid,
     layout::{Direction, Layout},
     pass_state,
     placer::Placer,
@@ -124,6 +123,7 @@ impl Ui {
     pub fn new(ctx: Context, id: Id, ui_builder: UiBuilder) -> Self {
         let UiBuilder {
             id_salt,
+            global_scope: _,
             ui_stack_info,
             layer_id,
             max_rect,
@@ -133,6 +133,8 @@ impl Ui {
             sizing_pass,
             style,
             sense,
+            #[cfg(feature = "accesskit")]
+            accessibility_parent,
         } = ui_builder;
 
         let layer_id = layer_id.unwrap_or(LayerId::background());
@@ -142,7 +144,7 @@ impl Ui {
             "Top-level Ui:s should not have an id_salt"
         );
 
-        let max_rect = max_rect.unwrap_or_else(|| ctx.screen_rect());
+        let max_rect = max_rect.unwrap_or_else(|| ctx.content_rect());
         let clip_rect = max_rect;
         let layout = layout.unwrap_or_default();
         let disabled = disabled || invisible;
@@ -173,6 +175,12 @@ impl Ui {
             min_rect_already_remembered: false,
         };
 
+        #[cfg(feature = "accesskit")]
+        if let Some(accessibility_parent) = accessibility_parent {
+            ui.ctx()
+                .register_accesskit_parent(ui.unique_id, accessibility_parent);
+        }
+
         // Register in the widget stack early, to ensure we are behind all widgets we contain:
         let start_rect = Rect::NOTHING; // This will be overwritten when `remember_min_rect` is called
         ui.ctx().create_widget(
@@ -193,6 +201,11 @@ impl Ui {
         if invisible {
             ui.set_invisible();
         }
+
+        #[cfg(feature = "accesskit")]
+        ui.ctx().accesskit_node_builder(ui.unique_id, |node| {
+            node.set_role(accesskit::Role::GenericContainer);
+        });
 
         ui
     }
@@ -250,6 +263,7 @@ impl Ui {
     pub fn new_child(&mut self, ui_builder: UiBuilder) -> Self {
         let UiBuilder {
             id_salt,
+            global_scope,
             ui_stack_info,
             layer_id,
             max_rect,
@@ -259,6 +273,8 @@ impl Ui {
             sizing_pass,
             style,
             sense,
+            #[cfg(feature = "accesskit")]
+            accessibility_parent,
         } = ui_builder;
 
         let mut painter = self.painter.clone();
@@ -287,8 +303,14 @@ impl Ui {
         }
 
         debug_assert!(!max_rect.any_nan(), "max_rect is NaN: {max_rect:?}");
-        let stable_id = self.id.with(id_salt);
-        let unique_id = stable_id.with(self.next_auto_id_salt);
+        let (stable_id, unique_id) = if global_scope {
+            (id_salt, id_salt)
+        } else {
+            let stable_id = self.id.with(id_salt);
+            let unique_id = stable_id.with(self.next_auto_id_salt);
+
+            (stable_id, unique_id)
+        };
         let next_auto_id_salt = unique_id.value().wrapping_add(1);
 
         self.next_auto_id_salt = self.next_auto_id_salt.wrapping_add(1);
@@ -321,6 +343,12 @@ impl Ui {
             child_ui.disable();
         }
 
+        #[cfg(feature = "accesskit")]
+        child_ui.ctx().register_accesskit_parent(
+            child_ui.unique_id,
+            accessibility_parent.unwrap_or(self.unique_id),
+        );
+
         // Register in the widget stack early, to ensure we are behind all widgets we contain:
         let start_rect = Rect::NOTHING; // This will be overwritten when `remember_min_rect` is called
         child_ui.ctx().create_widget(
@@ -334,6 +362,13 @@ impl Ui {
             },
             true,
         );
+
+        #[cfg(feature = "accesskit")]
+        child_ui
+            .ctx()
+            .accesskit_node_builder(child_ui.unique_id, |node| {
+                node.set_role(accesskit::Role::GenericContainer);
+            });
 
         child_ui
     }
@@ -369,7 +404,7 @@ impl Ui {
     ///
     /// However, it is not necessarily globally unique.
     /// For instance, sibling `Ui`s share the same [`Self::id`]
-    /// unless they where explicitly given different id salts using
+    /// unless they were explicitly given different id salts using
     /// [`UiBuilder::id_salt`].
     #[inline]
     pub fn id(&self) -> Id {
@@ -727,7 +762,7 @@ impl Ui {
     ///
     /// Returns a value rounded to [`emath::GUI_ROUNDING`].
     pub fn text_style_height(&self, style: &TextStyle) -> f32 {
-        self.fonts(|f| f.row_height(&style.resolve(self.style())))
+        self.fonts_mut(|f| f.row_height(&style.resolve(self.style())))
     }
 
     /// Screen-space rectangle for clipping what we paint in this ui.
@@ -839,10 +874,16 @@ impl Ui {
         self.ctx().output_mut(writer)
     }
 
-    /// Read-only access to [`Fonts`].
+    /// Read-only access to [`FontsView`].
     #[inline]
-    pub fn fonts<R>(&self, reader: impl FnOnce(&Fonts) -> R) -> R {
+    pub fn fonts<R>(&self, reader: impl FnOnce(&FontsView<'_>) -> R) -> R {
         self.ctx().fonts(reader)
+    }
+
+    /// Read-write access to [`FontsView`].
+    #[inline]
+    pub fn fonts_mut<R>(&self, reader: impl FnOnce(&mut FontsView<'_>) -> R) -> R {
+        self.ctx().fonts_mut(reader)
     }
 }
 
@@ -929,6 +970,30 @@ impl Ui {
             "Negative height makes no sense, but got: {height}"
         );
         self.placer.set_min_height(height);
+    }
+
+    /// Makes the ui always fill up the available space.
+    ///
+    /// This can be useful to call inside a panel with `resizable == true`
+    /// to make sure the resized space is used.
+    pub fn take_available_space(&mut self) {
+        self.set_min_size(self.available_size());
+    }
+
+    /// Makes the ui always fill up the available space in the x axis.
+    ///
+    /// This can be useful to call inside a side panel with
+    /// `resizable == true` to make sure the resized space is used.
+    pub fn take_available_width(&mut self) {
+        self.set_min_width(self.available_width());
+    }
+
+    /// Makes the ui always fill up the available space in the y axis.
+    ///
+    /// This can be useful to call inside a top bottom panel with
+    /// `resizable == true` to make sure the resized space is used.
+    pub fn take_available_height(&mut self) {
+        self.set_min_height(self.available_height());
     }
 
     // ------------------------------------------------------------------------
@@ -1064,6 +1129,9 @@ impl Ui {
 impl Ui {
     /// Check for clicks, drags and/or hover on a specific region of this [`Ui`].
     pub fn interact(&self, rect: Rect, id: Id, sense: Sense) -> Response {
+        #[cfg(feature = "accesskit")]
+        self.ctx().register_accesskit_parent(id, self.unique_id);
+
         self.ctx().create_widget(
             WidgetRect {
                 id,
@@ -1211,7 +1279,6 @@ impl Ui {
         if let Some(tag) = tag {
             tag.set_close();
         } else {
-            #[cfg(feature = "log")]
             log::warn!("Called ui.close() on a Ui that has no closable parent.");
         }
     }
@@ -1240,7 +1307,6 @@ impl Ui {
         if let Some(tag) = tag {
             tag.set_close();
         } else {
-            #[cfg(feature = "log")]
             log::warn!("Called ui.close_kind({ui_kind:?}) on ui with no such closable parent.");
         }
     }
@@ -1702,7 +1768,7 @@ impl Ui {
     /// The returned [`Response`] can be used to check for interactions,
     /// as well as adding tooltips using [`Response::on_hover_text`].
     ///
-    /// See also [`Self::add_sized`] and [`Self::put`].
+    /// See also [`Self::add_sized`], [`Self::place`] and [`Self::put`].
     ///
     /// ```
     /// # egui::__run_test_ui(|ui| {
@@ -1721,7 +1787,7 @@ impl Ui {
     ///
     /// To fill all remaining area, use `ui.add_sized(ui.available_size(), widget);`
     ///
-    /// See also [`Self::add`] and [`Self::put`].
+    /// See also [`Self::add`], [`Self::place`] and [`Self::put`].
     ///
     /// ```
     /// # egui::__run_test_ui(|ui| {
@@ -1740,9 +1806,23 @@ impl Ui {
             .inner
     }
 
-    /// Add a [`Widget`] to this [`Ui`] at a specific location (manual layout).
+    /// Add a [`Widget`] to this [`Ui`] at a specific location (manual layout) without
+    /// affecting this [`Ui`]s cursor.
     ///
-    /// See also [`Self::add`] and [`Self::add_sized`].
+    /// See also [`Self::add`] and [`Self::add_sized`] and [`Self::put`].
+    pub fn place(&mut self, max_rect: Rect, widget: impl Widget) -> Response {
+        self.new_child(
+            UiBuilder::new()
+                .max_rect(max_rect)
+                .layout(Layout::centered_and_justified(Direction::TopDown)),
+        )
+        .add(widget)
+    }
+
+    /// Add a [`Widget`] to this [`Ui`] at a specific location (manual layout) and advance the
+    /// cursor after the widget.
+    ///
+    /// See also [`Self::add`], [`Self::add_sized`], and [`Self::place`].
     pub fn put(&mut self, max_rect: Rect, widget: impl Widget) -> Response {
         self.scope_builder(
             UiBuilder::new()
@@ -1877,6 +1957,7 @@ impl Ui {
     /// Add extra space before the next widget.
     ///
     /// The direction is dependent on the layout.
+    /// Note that `add_space` isn't supported when in a grid layout.
     ///
     /// This will be in addition to the [`crate::style::Spacing::item_spacing`]
     /// that is always added, but `item_spacing` won't be added _again_ by `add_space`.
@@ -1884,6 +1965,7 @@ impl Ui {
     /// [`Self::min_rect`] will expand to contain the space.
     #[inline]
     pub fn add_space(&mut self, amount: f32) {
+        debug_assert!(!self.is_grid(), "add_space makes no sense in a grid layout");
         self.placer.advance_cursor(amount.round_ui());
     }
 

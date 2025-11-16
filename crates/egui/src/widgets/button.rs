@@ -1,7 +1,7 @@
 use crate::{
     Atom, AtomExt as _, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame,
-    Image, IntoAtoms, NumExt as _, Response, Sense, Stroke, TextWrapMode, Ui, Vec2, Widget,
-    WidgetInfo, WidgetText, WidgetType,
+    Image, IntoAtoms, NumExt as _, Response, Sense, Stroke, TextStyle, TextWrapMode, Ui, Vec2,
+    Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 /// Clickable button with text.
@@ -42,7 +42,9 @@ pub struct Button {
 impl Button {
     pub fn new(atoms: impl IntoAtoms) -> Self {
         Self {
-            layout: AtomLayout::new(atoms.into_atoms()).sense(Sense::click()),
+            layout: AtomLayout::new(atoms.into_atoms())
+                .sense(Sense::click())
+                .fallback_font(TextStyle::Button),
             fill: None,
             stroke: None,
             small: false,
@@ -327,7 +329,7 @@ impl Button {
                     .fill(fill)
                     .stroke(stroke)
                     .corner_radius(corner_radius.unwrap_or(visuals.corner_radius));
-            };
+            }
 
             prepared.paint(ui)
         } else {

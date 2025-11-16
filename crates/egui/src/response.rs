@@ -479,7 +479,7 @@ impl Response {
         self.drag_stopped() && self.ctx.input(|i| i.pointer.button_released(button))
     }
 
-    /// If dragged, how many points were we dragged and in what direction?
+    /// If dragged, how many points were we dragged in since last frame?
     #[inline]
     pub fn drag_delta(&self) -> Vec2 {
         if self.dragged() {
@@ -493,7 +493,22 @@ impl Response {
         }
     }
 
-    /// If dragged, how far did the mouse move?
+    /// If dragged, how many points have we been dragged since the start of the drag?
+    #[inline]
+    pub fn total_drag_delta(&self) -> Option<Vec2> {
+        if self.dragged() {
+            let mut delta = self.ctx.input(|i| i.pointer.total_drag_delta())?;
+            if let Some(from_global) = self.ctx.layer_transform_from_global(self.layer_id) {
+                delta *= from_global.scaling;
+            }
+            Some(delta)
+        } else {
+            None
+        }
+    }
+
+    /// If dragged, how far did the mouse move since last frame?
+    ///
     /// This will use raw mouse movement if provided by the integration, otherwise will fall back to [`Response::drag_delta`]
     /// Raw mouse movement is unaccelerated and unclamped by screen boundaries, and does not relate to any position on the screen.
     /// This may be useful in certain situations such as draggable values and 3D cameras, where screen position does not matter.
@@ -792,10 +807,9 @@ impl Response {
     /// ```
     #[must_use]
     pub fn interact(&self, sense: Sense) -> Self {
-        if (self.sense | sense) == self.sense {
-            // Early-out: we already sense everything we need to sense.
-            return self.clone();
-        }
+        // We could check here if the new Sense equals the old one to avoid the extra create_widget
+        // call. But that would break calling `interact` on a response from `Context::read_response`
+        // or `Ui::response`. (See https://github.com/emilk/egui/pull/7713 for more details.)
 
         self.ctx.create_widget(
             WidgetRect {
@@ -930,18 +944,18 @@ impl Response {
             WidgetType::Label => Role::Label,
             WidgetType::Link => Role::Link,
             WidgetType::TextEdit => Role::TextInput,
-            WidgetType::Button | WidgetType::ImageButton | WidgetType::CollapsingHeader => {
+            WidgetType::Button | WidgetType::CollapsingHeader | WidgetType::SelectableLabel => {
                 Role::Button
             }
             WidgetType::Image => Role::Image,
             WidgetType::Checkbox => Role::CheckBox,
             WidgetType::RadioButton => Role::RadioButton,
             WidgetType::RadioGroup => Role::RadioGroup,
-            WidgetType::SelectableLabel => Role::Button,
             WidgetType::ComboBox => Role::ComboBox,
             WidgetType::Slider => Role::Slider,
             WidgetType::DragValue => Role::SpinButton,
             WidgetType::ColorButton => Role::ColorWell,
+            WidgetType::Panel => Role::Pane,
             WidgetType::ProgressIndicator => Role::ProgressIndicator,
             WidgetType::Window => Role::Window,
             WidgetType::Other => Role::Unknown,

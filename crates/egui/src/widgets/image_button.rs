@@ -7,6 +7,7 @@ use crate::{
 #[must_use = "You should put this widget in a ui with `ui.add(widget);`"]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[deprecated(since = "0.33.0", note = "Use egui::Button::image instead")]
 pub struct ImageButton {
     pub(crate) image: Image,
     sense: Sense,
@@ -15,6 +16,7 @@ pub struct ImageButton {
     alt_text: Option<String>,
 }
 
+#[expect(deprecated, reason = "Deprecated in egui 0.33.0")]
 impl ImageButton {
     pub fn new(image: impl Into<Image>) -> Self {
         Self {
@@ -83,6 +85,7 @@ impl ImageButton {
     }
 }
 
+#[expect(deprecated, reason = "Deprecated in egui 0.33.0")]
 impl Widget for ImageButton {
     fn ui(self, ui: &mut Ui) -> Response {
         let padding = if self.frame {
@@ -102,7 +105,7 @@ impl Widget for ImageButton {
         let padded_size = image_size + 2.0 * padding;
         let (rect, response) = ui.allocate_exact_size(padded_size, self.sense);
         response.widget_info(|| {
-            let mut info = WidgetInfo::new(WidgetType::ImageButton);
+            let mut info = WidgetInfo::new(WidgetType::Button);
             info.label = self.alt_text.clone();
             info
         });

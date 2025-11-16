@@ -8,11 +8,15 @@ pub struct HarnessBuilder<State = ()> {
     pub(crate) screen_rect: Rect,
     pub(crate) pixels_per_point: f32,
     pub(crate) theme: egui::Theme,
+    pub(crate) os: egui::os::OperatingSystem,
     pub(crate) max_steps: u64,
     pub(crate) step_dt: f32,
     pub(crate) state: PhantomData<State>,
     pub(crate) renderer: Box<dyn TestRenderer>,
     pub(crate) wait_for_pending_images: bool,
+
+    #[cfg(feature = "snapshot")]
+    pub(crate) default_snapshot_options: crate::SnapshotOptions,
 }
 
 impl<State> Default for HarnessBuilder<State> {
@@ -26,6 +30,10 @@ impl<State> Default for HarnessBuilder<State> {
             max_steps: 4,
             step_dt: 1.0 / 4.0,
             wait_for_pending_images: true,
+            os: egui::os::OperatingSystem::Nix,
+
+            #[cfg(feature = "snapshot")]
+            default_snapshot_options: crate::SnapshotOptions::default(),
         }
     }
 }
@@ -51,6 +59,27 @@ impl<State> HarnessBuilder<State> {
     #[inline]
     pub fn with_theme(mut self, theme: egui::Theme) -> Self {
         self.theme = theme;
+        self
+    }
+
+    /// Set the default options used for snapshot tests on this harness.
+    #[cfg(feature = "snapshot")]
+    pub fn with_options(&mut self, options: crate::SnapshotOptions) {
+        self.default_snapshot_options = options;
+    }
+
+    /// Override the [`egui::os::OperatingSystem`] reported to egui.
+    ///
+    /// This affects e.g. the way shortcuts are displayed. So for snapshot tests,
+    /// it makes sense to set this to a specific OS, so snapshots don't change when running
+    /// the same tests on different OSes.
+    ///
+    /// Default is [`egui::os::OperatingSystem::Nix`].
+    /// Use [`egui::os::OperatingSystem::from_target_os()`] to use the current OS (this restores
+    /// eguis default behavior).
+    #[inline]
+    pub fn with_os(mut self, os: egui::os::OperatingSystem) -> Self {
+        self.os = os;
         self
     }
 
