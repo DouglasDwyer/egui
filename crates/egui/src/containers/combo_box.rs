@@ -46,6 +46,7 @@ pub struct ComboBox {
     icon: Option<IconPainter>,
     wrap_mode: Option<TextWrapMode>,
     close_behavior: Option<PopupCloseBehavior>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     popup_style: StyleModifier,
 }
 
