@@ -155,7 +155,7 @@ pub fn submenu_button<R>(
     title: impl Into<WidgetText>,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<Option<R>> {
-    SubMenu::new(parent_state, title).show(ui, add_contents)
+    SubMenu2::new(parent_state, title).show(ui, add_contents)
 }
 
 /// wrapper for the contents of every menu.
@@ -597,12 +597,12 @@ impl SubMenuButton2 {
     }
 }
 
-pub struct SubMenu {
+pub struct SubMenu2 {
     button: SubMenuButton2,
     parent_state: Arc<RwLock<MenuState>>,
 }
 
-impl SubMenu {
+impl SubMenu2 {
     fn new(parent_state: Arc<RwLock<MenuState>>, text: impl Into<WidgetText>) -> Self {
         let index = parent_state.write().next_entry_index();
         Self {
