@@ -564,16 +564,16 @@ impl Window<'_> {
 
                     frame.content_ui.set_min_size(title_bar.inner_rect.size());
 
-                    // Skip the title bar (and separator):
-                    if is_collapsed {
-                        frame.content_ui.add_space(title_bar.inner_rect.height());
-                    } else {
-                        frame.content_ui.add_space(
-                            title_bar.inner_rect.height()
-                                + title_content_spacing
-                                + window_frame.inner_margin.sum().y,
-                        );
-                    }
+                    // Skip the title bar (and separator). The extra spacing beyond the title bar
+                    // itself is scaled by openness rather than snapped with `is_collapsed`, so
+                    // content doesn't jump position on the very first frame of a collapse/expand -
+                    // only its clipped height (in `show_body_unindented`) animates.
+                    let openness = collapsing.openness(ctx);
+                    let open_extra_spacing =
+                        window_frame.stroke.width + window_frame.inner_margin.sum().y;
+                    frame
+                        .content_ui
+                        .add_space(title_bar.inner_rect.height() + open_extra_spacing * openness);
 
                     Some(title_bar)
                 } else {

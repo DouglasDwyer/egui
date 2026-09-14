@@ -155,8 +155,9 @@ impl Scene {
         // Update the `to_global` transform based on use interaction:
         self.register_pan_and_zoom(&local_ui, &mut pan_response, to_global);
 
-        // Set a correct global clip rect:
-        local_ui.set_clip_rect(to_global.inverse() * outer_rect);
+        // Set a correct global clip rect. Intersected with the parent's clip rect so a tighter
+        // clip (for instance, from window collapse) isn't overridden.
+        local_ui.set_clip_rect(to_global.inverse() * outer_rect.intersect(parent_ui.clip_rect()));
 
         // Add the actual contents to the area:
         let ret = add_contents(&mut local_ui);
